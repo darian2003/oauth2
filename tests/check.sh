@@ -22,6 +22,7 @@ if [ "$SERVER_NAME" = "" ] || [ "$CLIENT_NAME" = "" ]; then
     exit
 fi
 
+
 case $1 in
     '2' | '3')
       TOKEN_LIFETIME=2;;

@@ -27,3 +27,18 @@ char* generate_access_token(char* clientIdToken) {
     token[TOKEN_LEN] = '\0';
     return token;
 }
+
+char* generate_signature_token(char* clientIdToken) {
+    char *token = malloc(TOKEN_LEN + 1);  
+    int i;
+
+    for (i = 0; i < TOKEN_LEN; i++) {
+        if (rand() % 2 == 0) {  // 50% chance to substitute
+            token[i] = 'A' + (rand() % 26);  // Random letter
+        } else {
+            token[i] = clientIdToken[i];  // Keep original character
+        }
+    }
+    token[TOKEN_LEN] = '\0';
+    return token;
+}
