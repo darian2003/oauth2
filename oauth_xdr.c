@@ -52,8 +52,6 @@ xdr_access_response (XDR *xdrs, access_response *objp)
 
 	 if (!xdr_string (xdrs, &objp->access_token, ~0))
 		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->refresh_token, ~0))
-		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->ttl))
 		 return FALSE;
 	return TRUE;

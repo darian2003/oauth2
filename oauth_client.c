@@ -6,6 +6,10 @@
 
 #include "oauth.h"
 
+char **client_ids;
+char **client_access_tokens;
+int *ttls;
+int client_nr_users = 0;
 
 void
 checkprog_1(char *host)
@@ -116,11 +120,34 @@ struct access_response *request_access(char *host, struct access_request access_
 
 }
 
+int validate_delegated_action(char *host, struct action_request action_request) {
+
+	CLIENT *clnt;
+	int *response;
+
+#ifndef	DEBUG
+	clnt = clnt_create (host, CHECKPROG, CHECKVERS, "udp");
+	if (clnt == NULL) {
+		clnt_pcreateerror (host);
+		exit (1);
+	}
+#endif	/* DEBUG */
+	
+
+	response = validate_delegated_action_1(&validate_delegated_action_1_arg, clnt);
+	if (response == (int *) NULL) {
+		clnt_perror (clnt, "call failed");
+	}
+
+	return response;
+}
+
 int
 main (int argc, char *argv[])
 {
 	char *host;
 	fflush(stdout);
+	
 	printf("lalal\n\n");
 
 	if (argc < 2) {
@@ -129,6 +156,16 @@ main (int argc, char *argv[])
 	} else if (argc < 3) {
 		printf ("no operations file found\n");
 		exit (1);
+	}
+
+	client_ids = malloc(MAX_LINES * sizeof(char *));
+	client_access_tokens = malloc(MAX_LINES * sizeof(char *));
+	ttls = calloc(MAX_LINES, sizeof(int));
+
+
+	for (int i = 0; i < MAX_LINES; i++) {
+		client_ids[i] = calloc(16, sizeof(char));
+		client_access_tokens[i] = calloc(16, sizeof(char));
 	}
 
 	host = argv[1];
@@ -153,19 +190,41 @@ main (int argc, char *argv[])
 		printf("%d\n", nr);
 		nr++;
 		printf("\n\n");
+
 		char *token = strtok(line, delimiters);
 		char id[16];
 		strcpy(id, token);
+
 		char action[30];
 		token = strtok(NULL, delimiters);
 		strcpy(action, token);
-		char refresh_string[10];
-		token = strtok(NULL, delimiters);
-		int refresh = atoi(token);
 
 		if (strcmp(action, "REQUEST") == 0) {
+
+			char refresh_string[10];
+			token = strtok(NULL, delimiters);
+			int refresh = atoi(token);
+
+			// Add client to database (if necessary)
+			int database_id = 0;
+			int found = 0;
+			for (int i = 0; i < client_nr_users; i++) {
+				if (strcmp(client_ids[i], id) == 0) {
+					found = 1;
+					database_id = i;
+					break;
+				}
+			}
+
+			if(!found) {
+				strcpy(client_ids[client_nr_users], id);
+				database_id = client_nr_users;
+				client_nr_users++;
+			}
+
 			// Send authorization request to server
 			struct auth_response *auth_response = request_auth(host, id);
+			// TODO define
 			if (auth_response->status == 404) {
 				printf("USER_NOT_FOUND\n");
 			} else {
@@ -201,9 +260,42 @@ main (int argc, char *argv[])
 				if (!access_response) {
 					printf("REQUEST_DENIED\n");
 				} else {
+					// Save access token
+					strcpy(client_access_tokens[database_id], access_response->access_token);
 					printf("%s -> %s\n", access_request.auth_token, access_response->access_token);
 				}
 			}
+		} else {
+			
+			// Parse resource's name
+			char resource[30];
+			token = strtok(NULL, delimiters);
+			strcpy(resource, token);
+
+			struct action_request action_request;
+			action_request.action = malloc(2);
+			action_request.access_token = malloc(16);
+			action_request.resource = malloc(30);
+
+			if (action[0] == "E") {
+				action_request.action[0] = 'X';
+			} else {
+				action_request.action[0] = action[0];
+			}
+			action_request.action[1] = '\0'; 
+
+			strcpy(action_request.resource, resource);
+
+			// Find user's access token
+			for (int i = 0; i < MAX_LINES; i++) {
+				if (strcmp(client_ids[i], id) == 0) {
+					strcpy(action_request.access_token, client_access_tokens[i]);
+					break;
+				}
+			}
+			
+			int *status = validate_delegated_action(host, action_request);
+			printf("Status: %d\n", *status);
 		}
     }
 

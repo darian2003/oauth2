@@ -26,11 +26,11 @@ struct action_request {
     string resource<>;
 };
 
-program CHECKPROG {
-    version CHECKVERS {
+program OAUTH_PROG {
+    version OAUTH_VERS {
         struct auth_response REQUEST_AUTH(string) = 1;
         struct approve_request APPROVE_REQUEST_TOKEN(struct approve_request) = 2;
         struct access_response REQUEST_ACCESS(struct access_request) = 3;
-        int VALIDATE_DELEGATED_ACTION(struct access_request) = 4;
+        int VALIDATE_DELEGATED_ACTION(struct action_request) = 4;
     } = 1;
 } = 0x30000005;

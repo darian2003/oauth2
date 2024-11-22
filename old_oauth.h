@@ -8,6 +8,7 @@
 
 #include <rpc/rpc.h>
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,7 +36,6 @@ typedef struct access_request access_request;
 
 struct access_response {
 	char *access_token;
-	char *refresh_token;
 	int ttl;
 };
 typedef struct access_response access_response;
@@ -47,30 +47,29 @@ struct action_request {
 };
 typedef struct action_request action_request;
 
-#define CHECKPROG 0x30000005
-#define CHECKVERS 1
+#define OAUTH_PROG 0x30000005
+#define OAUTH_VERS 1
 
-// Shared data
+// Server data. Visible only by the server.
 #define MAX_LINES 10
 extern char **ids;
 extern char **resources;
 extern char **approvals;
 extern char **auth_tokens;
-
-// extern char resources[MAX_LINES][30];
-// extern char ids[MAX_LINES][16];
-// extern char approvals[MAX_LINES][100];
-// extern char auth_tokens[MAX_LINES][16];
 extern char **access_tokens;
-extern char **refresh_tokens;
 extern char **signatures;
+extern char **permissions;
 extern int nr_users;
 extern int nr_resources;
 extern int nr_approvals;
 extern int crt_approval;
 extern int ttl;
 
-
+// Client data. Visible only by the client.
+extern char **client_ids;
+extern char **client_access_tokens;
+extern int *ttls;
+extern int client_nr_users;
 
 #if defined(__STDC__) || defined(__cplusplus)
 #define REQUEST_AUTH 1
@@ -85,7 +84,7 @@ extern  struct access_response * request_access_1_svc(struct access_request *, s
 #define VALIDATE_DELEGATED_ACTION 4
 extern  int * validate_delegated_action_1(struct access_request *, CLIENT *);
 extern  int * validate_delegated_action_1_svc(struct access_request *, struct svc_req *);
-extern int checkprog_1_freeresult (SVCXPRT *, xdrproc_t, caddr_t);
+extern int oauth_prog_1_freeresult (SVCXPRT *, xdrproc_t, caddr_t);
 
 #else /* K&R C */
 #define REQUEST_AUTH 1
@@ -100,7 +99,7 @@ extern  struct access_response * request_access_1_svc();
 #define VALIDATE_DELEGATED_ACTION 4
 extern  int * validate_delegated_action_1();
 extern  int * validate_delegated_action_1_svc();
-extern int checkprog_1_freeresult ();
+extern int oauth_prog_1_freeresult ();
 #endif /* K&R C */
 
 /* the xdr functions */
