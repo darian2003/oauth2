@@ -16,66 +16,109 @@
 #define SIG_PF void(*)(int)
 #endif
 
-int ttl;
-int nr_users;
-int nr_resources;
-int nr_approvals;
+char **resources;
+char **ids;
+char **approvals;
+char **auth_tokens;
+// char resources[MAX_LINES][30];
+// char ids[MAX_LINES][16];
+// char approvals[MAX_LINES][100];
+// char auth_tokens[MAX_LINES][16];
+char **access_tokens;
+char **refresh_tokens;
+char **signatures;
+int ttl = 0;
+int nr_users = 0;
+int nr_resources = 0;
+int nr_approvals = 0;
+int crt_approval = 0;
 
 void create_database(char **argv) {
 	char *users_file = argv[1];
 	char *resources_file = argv[2];
 	char *approvals_file = argv[3];
 	ttl = atoi(argv[4]);
+	
+	resources = malloc(MAX_LINES * sizeof(char *));
+	ids = malloc(MAX_LINES * sizeof(char *));
+	approvals = malloc(MAX_LINES * sizeof(char *));
+	auth_tokens = malloc(MAX_LINES * sizeof(char *));
+	signatures = malloc(MAX_LINES * sizeof(char *));
+	access_tokens = malloc(MAX_LINES * sizeof(char *));
+	refresh_tokens = malloc(MAX_LINES * sizeof(char *));
+
+
+	for (int i = 0; i < MAX_LINES; i++) {
+		resources[i] = calloc(20, sizeof(char));
+		ids[i] = calloc(16, sizeof(char));
+		approvals[i] = calloc(100, sizeof(char));
+		auth_tokens[i] = calloc(16, sizeof(char));
+		signatures[i] = calloc(16, sizeof(char));
+		access_tokens[i] = calloc(16, sizeof(char));
+		refresh_tokens[i] = calloc(16, sizeof(char));
+	}
 
 	FILE *file = fopen(users_file, "r");
     if (file == NULL) {
         perror("Error opening file");
-        return 1;
+        return;
     }
 
-    char line[100];  // Buffer to store each line
+    char line[50];  // Buffer to store each line
 	const char delimiters[] = ",\n";
 
 	// Read every line
 	fgets(line, sizeof(line), file);
-	nr_users = atoi(line)
+	nr_users = atoi(line);
     for (int i = 0; i < nr_users; i++) {
 		fgets(line, sizeof(line), file);
+		line[strcspn(line, "\n")] = '\0';
+		printf("%s\n", line);
 		strcpy(ids[i], line);
 	}
+
+	for(int i = 0; i < nr_users; i++) {
+		printf("%s %d\n", ids[i], i);
+	}
+
 	fclose(file);
 
-	FILE *file = fopen(resources_file, "r");
+	file = fopen(resources_file, "r");
     if (file == NULL) {
         perror("Error opening file");
-        return 1;
+        return;
     }
 
 	// Read every line
 	fgets(line, sizeof(line), file);
-	nr_resources = atoi(line)
+	nr_resources = atoi(line);
     for (int i = 0; i < nr_resources; i++) {
 		fgets(line, sizeof(line), file);
+		line[strcspn(line, "\n")] = '\0';
 		strcpy(resources[i], line);
 	}
 	fclose(file);
 
-	FILE *file = fopen(approvals_file, "r");
+	file = fopen(approvals_file, "r");
     if (file == NULL) {
         perror("Error opening file");
-        return 1;
+        return;
     }
 
 	// Read every line
-	fgets(line, sizeof(line), file);
-	nr_approvals = atoi(line)
-    for (int i = 0; i < nr_approvals; i++) {
-		fgets(line, sizeof(line), file);
+	int i = 0;
+	nr_approvals = 0;
+	while (fgets(line, sizeof(line), file)) {
+		line[strcspn(line, "\n")] = '\0';
 		strcpy(approvals[i], line);
+		printf("app %d %s\n", i, approvals[i]);
+		i += 1;
 	}
+	nr_approvals = i;
 	fclose(file);
 
 }
+
 
 static void
 checkprog_1(struct svc_req *rqstp, register SVCXPRT *transp)
@@ -172,7 +215,7 @@ main (int argc, char **argv)
 		printf ("usage: %s users_file resources_file approvals_file time_to_live\n", argv[0]);
 		exit (1);
 	}
-	create_database();
+	create_database(argv);
 
 	svc_run ();
 	fprintf (stderr, "%s", "svc_run returned");

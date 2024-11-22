@@ -5,23 +5,30 @@
  */
 
 #include "oauth.h"
+#include "token.h"
+
 
 struct auth_response *
 request_auth_1_svc(char **argp, struct svc_req *rqstp)
 {
-	static struct auth_response  result;
-	char *id_to_authorize;
+	static struct auth_response result;
+	char *id_to_authorize = *argp;
 	int found = 0;
 
 	/*
 	 * insert server code here
 	 */
+	printf("%d\n", nr_users);
+	printf("%s\n", id_to_authorize);
+
+	result.auth_token = malloc(16);
 
 	for(int i = 0; i < nr_users; i++) {
+		printf("%s %d\n", ids[i], i);
 		if (strcmp(ids[i], id_to_authorize) == 0) {
 			result.status = 200;
 			char *auth_token = generate_access_token(id_to_authorize);
-			strcpy(result.request_token, auth_token); // Give client the auth_token
+			strcpy(result.auth_token, auth_token);
 			strcpy(auth_tokens[i], auth_token); // Save the auth token for future verification
 			found = 1;
 			break;
@@ -32,6 +39,7 @@ request_auth_1_svc(char **argp, struct svc_req *rqstp)
 		result.status = 404;
 	}
 
+	printf("returning\n");
 	return &result;
 }
 
@@ -43,16 +51,20 @@ approve_request_token_1_svc(struct approve_request *approve_request, struct svc_
 	/*
 	 * insert server code here
 	 */
+	approve_response.auth_token = malloc(16);
+	approve_response.signature = malloc(16);
+	approve_response.permissions = malloc(100);
 	strcpy(approve_response.auth_token, approve_request->auth_token);
-	char *user_action = approvals[crt_approval];
-	if (user_action[0] == '*') {
+	printf("approve %d %s\n", crt_approval, approvals[crt_approval]);
+	if (approvals[crt_approval][0] == '*') {
 		// TODO
-		approve_response.signature = NULL;
-		approve_response.permissions = NULL;
+		memset(approve_response.signature, 0, 16);
+		memset(approve_response.permissions, 0, 16);
 	} else {
-		char *signature = generate_signature_token(approve_request->auth_token);
+		//char *signature = generate_signature_token(approve_request->auth_token);
+		char *signature = approve_response.auth_token;
 		strcpy(approve_response.signature, signature);
-		strcpy(approve_response.permissions, user_action);
+		strcpy(approve_response.permissions, approvals[crt_approval]);
 		// Save the signature for future verification
 		for (int i = 0; i < nr_users; i++) {
 			if (strcmp(approve_request->auth_token, auth_tokens[i]) == 0) {
@@ -62,6 +74,8 @@ approve_request_token_1_svc(struct approve_request *approve_request, struct svc_
 		}
 	}
 
+	printf("returning 2\n");
+	crt_approval += 1;
 	return &approve_response;
 }
 
@@ -69,12 +83,14 @@ struct access_response *
 request_access_1_svc(struct access_request *access_request, struct svc_req *rqstp)
 {
 	static struct access_response  access_response;
+	access_response.access_token = malloc(16);
+	access_response.refresh_token = malloc(16);
 
 	/*
 	 * insert server code here
 	 */
 	for (int i = 0; i < nr_users; i++) {
-		if (strmcp(ids[i], access_request->id) == 0) { // User found	 
+		if (strcmp(ids[i], access_request->id) == 0) { // User found	 
 			if (strcmp(signatures[i], access_request->signature) != 0) {
 				return NULL;
 			} else {
@@ -82,12 +98,15 @@ request_access_1_svc(struct access_request *access_request, struct svc_req *rqst
 				char *refresh_token = generate_access_token(access_token);
 				strcpy(access_response.access_token, access_token);
 				strcpy(access_response.refresh_token, refresh_token);
-				access_token.ttl = ttl;
-				break
+				access_response.ttl = ttl;
+				strcpy(access_tokens[i], access_token);
+				strcpy(refresh_tokens[i], refresh_token);
+				break;
 			}
 		}
 	}
 
+	printf("returning 3\n");
 	return &access_response;
 }
 

@@ -8,7 +8,6 @@
 
 #include <rpc/rpc.h>
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -53,17 +52,23 @@ typedef struct action_request action_request;
 
 // Shared data
 #define MAX_LINES 10
-extern char ids[MAX_LINES][16];
-extern char resources[MAX_LINES][20];
-extern char approvals[MAX_LINES][100];
-extern char auth_tokens[MAX_LINES][16];
-extern char access_tokens[MAX_LINES][16];
-extern char request_tokens[MAX_LINES][16];
-extern char signatures[MAX_LINES][16];
+extern char **ids;
+extern char **resources;
+extern char **approvals;
+extern char **auth_tokens;
+
+// extern char resources[MAX_LINES][30];
+// extern char ids[MAX_LINES][16];
+// extern char approvals[MAX_LINES][100];
+// extern char auth_tokens[MAX_LINES][16];
+extern char **access_tokens;
+extern char **refresh_tokens;
+extern char **signatures;
 extern int nr_users;
 extern int nr_resources;
 extern int nr_approvals;
 extern int crt_approval;
+extern int ttl;
 
 
 

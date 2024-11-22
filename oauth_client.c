@@ -60,13 +60,11 @@ struct auth_response *request_auth(char *host, char *id) {
 		exit (1);
 	}
 #endif	/* DEBUG */
-
 	auth_response = request_auth_1(&id, clnt);
 	if (auth_response == (struct auth_response *) NULL) {
 		clnt_perror (clnt, "call failed");
 		exit(1);
 	}
-		
 
 	fflush(stdout);
 	printf("Response: %s %d\n", auth_response->auth_token, auth_response->status);
@@ -91,10 +89,7 @@ struct approve_request *approve_request_token(char *host, struct approve_request
 		clnt_perror (clnt, "call failed");
 		exit(1);
 	}
-	if (!approve_response->signature) {
-		// TODO
-		printf("Denied access\n");
-	} 
+
 	return approve_response;
 }
 
@@ -152,8 +147,12 @@ main (int argc, char *argv[])
 	const char delimiters[] = ",\n";
 
 	// Execute every command
+	int nr = 0;
     while (fgets(line, sizeof(line), file)) {  // Read one line at a time
-        printf("%s", line);  // Print the current line
+	printf("%s\n", line);
+		printf("%d\n", nr);
+		nr++;
+		printf("\n\n");
 		char *token = strtok(line, delimiters);
 		char id[16];
 		strcpy(id, token);
@@ -163,20 +162,39 @@ main (int argc, char *argv[])
 		char refresh_string[10];
 		token = strtok(NULL, delimiters);
 		int refresh = atoi(token);
-		printf("%s %s %d\n", id, action, refresh);
 
 		if (strcmp(action, "REQUEST") == 0) {
+			// Send authorization request to server
 			struct auth_response *auth_response = request_auth(host, id);
 			if (auth_response->status == 404) {
 				printf("USER_NOT_FOUND\n");
 			} else {
+
+				// Prepare signature request to user
 				struct approve_request approve_request;
+				approve_request.auth_token = malloc(16);
+				approve_request.signature = malloc(16);
+				approve_request.permissions = malloc(100);
 				strcpy(approve_request.auth_token, auth_response->auth_token);
+
+				// Request signature from user
 				struct approve_request *approve_response = approve_request_token(host, approve_request);
+				printf("app %s\n", approve_response->signature);
+
+				// Prepare access request to server
+				if (approve_response->signature[0] == '\0') {
+					printf("REQUEST_DENIED\n");
+					continue;
+				}
 				struct access_request access_request;
+				access_request.auth_token = malloc(16);
+				access_request.id = malloc(16);
+				access_request.signature = malloc(16);
 				strcpy(access_request.id, id);
 				strcpy(access_request.auth_token, approve_response->auth_token);
 				strcpy(access_request.signature, approve_response->signature);
+
+				// Request access token
 				struct access_response *access_response = request_access(host, access_request);
 				if (!access_response) {
 					printf("REQUEST_DENIED\n");
@@ -189,6 +207,5 @@ main (int argc, char *argv[])
 
     fclose(file);  // Close the file
 
-	checkprog_1 (host);
 	exit (0);
 }
