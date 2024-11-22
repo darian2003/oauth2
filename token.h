@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <ctype.h>
 
 #define TOKEN_LEN 15
 
@@ -28,17 +29,29 @@ char* generate_access_token(char* clientIdToken) {
     return token;
 }
 
-char* generate_signature_token(char* clientIdToken) {
+
+#define SHIFT 5       // Caesar cipher shift value
+
+char* generate_signature_token(const char* clientIdToken) {
     char *token = malloc(TOKEN_LEN + 1);  
     int i;
 
     for (i = 0; i < TOKEN_LEN; i++) {
-        if (rand() % 2 == 0) {  // 50% chance to substitute
-            token[i] = 'A' + (rand() % 26);  // Random letter
+        char c = clientIdToken[i];
+        
+        if (isalpha(c)) {  // If the character is a letter
+            if (isupper(c)) {
+                token[i] = 'A' + ((c - 'A' + SHIFT) % 26);  // Shift and wrap for uppercase
+            } else {
+                token[i] = 'a' + ((c - 'a' + SHIFT) % 26);  // Shift and wrap for lowercase
+            }
+        } else if (isdigit(c)) {  // If the character is a digit
+            token[i] = '0' + ((c - '0' + SHIFT) % 10);  // Shift and wrap for numbers
         } else {
-            token[i] = clientIdToken[i];  // Keep original character
+            token[i] = c;  // If it's neither, leave it unchanged (shouldn't happen per your constraints)
         }
     }
-    token[TOKEN_LEN] = '\0';
+    token[TOKEN_LEN] = '\0';  // Null-terminate the string
     return token;
 }
+

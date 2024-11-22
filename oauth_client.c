@@ -195,7 +195,9 @@ main (int argc, char *argv[])
 				strcpy(access_request.signature, approve_response->signature);
 
 				// Request access token
+				printf("before access\n");
 				struct access_response *access_response = request_access(host, access_request);
+				printf("after access\n");
 				if (!access_response) {
 					printf("REQUEST_DENIED\n");
 				} else {

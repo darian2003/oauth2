@@ -17,7 +17,6 @@ struct access_request {
 
 struct access_response {
     string access_token<>;
-    string refresh_token<>;
     int ttl;
 };
 

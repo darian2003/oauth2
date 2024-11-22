@@ -62,7 +62,7 @@ approve_request_token_1_svc(struct approve_request *approve_request, struct svc_
 		memset(approve_response.permissions, 0, 16);
 	} else {
 		//char *signature = generate_signature_token(approve_request->auth_token);
-		char *signature = approve_response.auth_token;
+		char *signature = generate_signature_token(approve_request->auth_token);
 		strcpy(approve_response.signature, signature);
 		strcpy(approve_response.permissions, approvals[crt_approval]);
 		// Save the signature for future verification
