@@ -14,6 +14,12 @@ extern "C" {
 #endif
 
 
+struct auth_request {
+	char *id;
+	int refresh_state;
+};
+typedef struct auth_request auth_request;
+
 struct auth_response {
 	char *auth_token;
 	int status;
@@ -36,6 +42,7 @@ typedef struct access_request access_request;
 
 struct access_response {
 	char *access_token;
+	char *refresh_token;
 	int ttl;
 };
 typedef struct access_response access_response;
@@ -47,11 +54,26 @@ struct action_request {
 };
 typedef struct action_request action_request;
 
+struct refresh_response {
+	char *access_token;
+	char *refresh_token;
+	int ttl;
+};
+typedef struct refresh_response refresh_response;
+
 #define OAUTH_PROG 0x30000005
 #define OAUTH_VERS 1
 
-// Server data. Visible only by the server.
+// Shared data.
 #define MAX_LINES 10
+#define RESOURCE_NOT_FOUND 404
+#define PERMISSION_DENIED 403
+#define OPERATION_NOT_PERMITTED 405
+#define TOKEN_EXPIRED 498
+#define USER_NOT_FOUND 401
+#define PERMISSION_GRANTED 202
+
+// Server data. Visible only by the server.
 extern char **ids;
 extern char **resources;
 extern char **approvals;
@@ -59,6 +81,8 @@ extern char **auth_tokens;
 extern char **access_tokens;
 extern char **signatures;
 extern char **permissions;
+extern char **refresh_tokens;
+extern int *ttls;
 extern int nr_users;
 extern int nr_resources;
 extern int nr_approvals;
@@ -68,13 +92,15 @@ extern int ttl;
 // Client data. Visible only by the client.
 extern char **client_ids;
 extern char **client_access_tokens;
-extern int *ttls;
+extern char **client_refresh_tokens;
+extern int *client_refresh_states;
+extern int *client_ttls;
 extern int client_nr_users;
 
 #if defined(__STDC__) || defined(__cplusplus)
 #define REQUEST_AUTH 1
-extern  struct auth_response * request_auth_1(char **, CLIENT *);
-extern  struct auth_response * request_auth_1_svc(char **, struct svc_req *);
+extern  struct auth_response * request_auth_1(struct auth_request *, CLIENT *);
+extern  struct auth_response * request_auth_1_svc(struct auth_request *, struct svc_req *);
 #define APPROVE_REQUEST_TOKEN 2
 extern  struct approve_request * approve_request_token_1(struct approve_request *, CLIENT *);
 extern  struct approve_request * approve_request_token_1_svc(struct approve_request *, struct svc_req *);
@@ -82,8 +108,11 @@ extern  struct approve_request * approve_request_token_1_svc(struct approve_requ
 extern  struct access_response * request_access_1(struct access_request *, CLIENT *);
 extern  struct access_response * request_access_1_svc(struct access_request *, struct svc_req *);
 #define VALIDATE_DELEGATED_ACTION 4
-extern  int * validate_delegated_action_1(struct access_request *, CLIENT *);
-extern  int * validate_delegated_action_1_svc(struct access_request *, struct svc_req *);
+extern  int * validate_delegated_action_1(struct action_request *, CLIENT *);
+extern  int * validate_delegated_action_1_svc(struct action_request *, struct svc_req *);
+#define REFRESH_SESSION 5
+extern  struct refresh_response * refresh_session_1(char **, CLIENT *);
+extern  struct refresh_response * refresh_session_1_svc(char **, struct svc_req *);
 extern int oauth_prog_1_freeresult (SVCXPRT *, xdrproc_t, caddr_t);
 
 #else /* K&R C */
@@ -99,24 +128,31 @@ extern  struct access_response * request_access_1_svc();
 #define VALIDATE_DELEGATED_ACTION 4
 extern  int * validate_delegated_action_1();
 extern  int * validate_delegated_action_1_svc();
+#define REFRESH_SESSION 5
+extern  struct refresh_response * refresh_session_1();
+extern  struct refresh_response * refresh_session_1_svc();
 extern int oauth_prog_1_freeresult ();
 #endif /* K&R C */
 
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
+extern  bool_t xdr_auth_request (XDR *, auth_request*);
 extern  bool_t xdr_auth_response (XDR *, auth_response*);
 extern  bool_t xdr_approve_request (XDR *, approve_request*);
 extern  bool_t xdr_access_request (XDR *, access_request*);
 extern  bool_t xdr_access_response (XDR *, access_response*);
 extern  bool_t xdr_action_request (XDR *, action_request*);
+extern  bool_t xdr_refresh_response (XDR *, refresh_response*);
 
 #else /* K&R C */
+extern bool_t xdr_auth_request ();
 extern bool_t xdr_auth_response ();
 extern bool_t xdr_approve_request ();
 extern bool_t xdr_access_request ();
 extern bool_t xdr_access_response ();
 extern bool_t xdr_action_request ();
+extern bool_t xdr_refresh_response ();
 
 #endif /* K&R C */
 

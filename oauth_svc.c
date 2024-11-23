@@ -21,6 +21,7 @@ char **ids;
 char **approvals;
 char **auth_tokens;
 char **access_tokens;
+char **refresh_tokens;
 char **signatures;
 char **permissions;
 int *ttls;
@@ -43,6 +44,8 @@ void create_database(char **argv) {
 	signatures = malloc(MAX_LINES * sizeof(char *));
 	access_tokens = malloc(MAX_LINES * sizeof(char *));
 	permissions = malloc(MAX_LINES * sizeof(char *));
+	refresh_tokens = malloc(MAX_LINES * sizeof(char *));
+
 	ttls = calloc(MAX_LINES, sizeof(int));
 
 
@@ -53,6 +56,7 @@ void create_database(char **argv) {
 		auth_tokens[i] = calloc(16, sizeof(char));
 		signatures[i] = calloc(16, sizeof(char));
 		access_tokens[i] = calloc(16, sizeof(char));
+		refresh_tokens[i] = calloc(16, sizeof(char));
 		permissions[i] = calloc(100, sizeof(char));
 	}
 
@@ -119,6 +123,7 @@ oauth_prog_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		struct approve_request approve_request_token_1_arg;
 		struct access_request request_access_1_arg;
 		struct action_request validate_delegated_action_1_arg;
+		char *refresh_session_1_arg;
 	} argument;
 	char *result;
 	xdrproc_t _xdr_argument, _xdr_result;
@@ -151,6 +156,12 @@ oauth_prog_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		_xdr_argument = (xdrproc_t) xdr_action_request;
 		_xdr_result = (xdrproc_t) xdr_int;
 		local = (char *(*)(char *, struct svc_req *)) validate_delegated_action_1_svc;
+		break;
+
+	case REFRESH_SESSION:
+		_xdr_argument = (xdrproc_t) xdr_wrapstring;
+		_xdr_result = (xdrproc_t) xdr_refresh_response;
+		local = (char *(*)(char *, struct svc_req *)) refresh_session_1_svc;
 		break;
 
 	default:
@@ -203,6 +214,8 @@ main (int argc, char **argv)
 	create_database(argv);
 
 	svc_run ();
+
+	//fflush(stdout);
 	fprintf (stderr, "%s", "svc_run returned");
 	exit (1);
 	/* NOTREACHED */

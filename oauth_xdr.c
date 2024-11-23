@@ -42,6 +42,8 @@ xdr_access_request (XDR *xdrs, access_request *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->auth_token, ~0))
 		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->refresh_state))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -51,6 +53,8 @@ xdr_access_response (XDR *xdrs, access_response *objp)
 	register int32_t *buf;
 
 	 if (!xdr_string (xdrs, &objp->access_token, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->refresh_token, ~0))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->ttl))
 		 return FALSE;
@@ -67,6 +71,20 @@ xdr_action_request (XDR *xdrs, action_request *objp)
 	 if (!xdr_string (xdrs, &objp->access_token, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->resource, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_refresh_response (XDR *xdrs, refresh_response *objp)
+{
+	register int32_t *buf;
+
+	 if (!xdr_string (xdrs, &objp->access_token, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->refresh_token, ~0))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->ttl))
 		 return FALSE;
 	return TRUE;
 }
