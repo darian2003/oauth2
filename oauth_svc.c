@@ -37,6 +37,7 @@ void create_database(char **argv) {
 	char *approvals_file = argv[3];
 	ttl = atoi(argv[4]);
 	
+	// Allocate dinamyc resources.
 	resources = malloc(MAX_LINES * sizeof(char *));
 	ids = malloc(MAX_LINES * sizeof(char *));
 	approvals = malloc(MAX_LINES * sizeof(char *));
@@ -45,9 +46,7 @@ void create_database(char **argv) {
 	access_tokens = malloc(MAX_LINES * sizeof(char *));
 	permissions = malloc(MAX_LINES * sizeof(char *));
 	refresh_tokens = malloc(MAX_LINES * sizeof(char *));
-
 	ttls = calloc(MAX_LINES, sizeof(int));
-
 
 	for (int i = 0; i < MAX_LINES; i++) {
 		resources[i] = calloc(20, sizeof(char));
@@ -60,13 +59,15 @@ void create_database(char **argv) {
 		permissions[i] = calloc(100, sizeof(char));
 	}
 
+	// Read and store users.
 	FILE *file = fopen(users_file, "r");
     if (file == NULL) {
         perror("Error opening file");
         return;
     }
 
-    char line[50];  // Buffer to store each line
+	// Buffer to store each line.
+    char line[50];  
 	const char delimiters[] = ",\n";
 
 	// Read every line
@@ -77,9 +78,9 @@ void create_database(char **argv) {
 		line[strcspn(line, "\n")] = '\0';
 		strcpy(ids[i], line);
 	}
-
 	fclose(file);
 
+	// Read and store resources.
 	file = fopen(resources_file, "r");
     if (file == NULL) {
         perror("Error opening file");
@@ -96,6 +97,7 @@ void create_database(char **argv) {
 	}
 	fclose(file);
 
+	// Read and store apptovals.
 	file = fopen(approvals_file, "r");
     if (file == NULL) {
         perror("Error opening file");
@@ -211,6 +213,7 @@ main (int argc, char **argv)
 		exit(1);
 	}
 
+	// Read all the files and populate the database.
 	create_database(argv);
 
 	svc_run ();

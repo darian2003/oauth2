@@ -15,21 +15,22 @@ request_auth_1_svc(char **argp, struct svc_req *rqstp)
 	char *id_to_authorize = *argp;
 	int found = 0;
 
-	/*
-	 * insert server code here
-	 */
-
 	printf("BEGIN %s AUTHZ\n", id_to_authorize);
 	fflush(stdout);
 
 	result.auth_token = malloc(16);
 
+	// Search the id in the database.
 	for(int i = 0; i < nr_users; i++) {
 		if (strcmp(ids[i], id_to_authorize) == 0) {
 			result.status = 200;
+
+			// Create AUTH token.
 			char *auth_token = generate_access_token(id_to_authorize);
 			strcpy(result.auth_token, auth_token);
-			strcpy(auth_tokens[i], auth_token); // Save the auth token for future verification
+
+			// Save the auth token for future verification.
+			strcpy(auth_tokens[i], auth_token); 
 			found = 1;
 			printf("  RequestToken = %s\n", result.auth_token);
 			fflush(stdout);
@@ -41,7 +42,6 @@ request_auth_1_svc(char **argp, struct svc_req *rqstp)
 		result.status = 404;
 	}
 
-	//printf("returning\n");
 	return &result;
 }
 
@@ -50,23 +50,23 @@ approve_request_token_1_svc(struct approve_request *approve_request, struct svc_
 {
 	static struct approve_request approve_response;
 
-	/*
-	 * insert server code here
-	 */
 	approve_response.auth_token = malloc(16);
 	approve_response.signature = malloc(16);
 	approve_response.permissions = malloc(100);
 	strcpy(approve_response.auth_token, approve_request->auth_token);
+
+	// Check if the request was approved by the user.
 	if (approvals[crt_approval][0] == '*') {
-		// TODO
 		memset(approve_response.signature, 0, 16);
 		memset(approve_response.permissions, 0, 16);
 	} else {
+
+		// User approved AUTH request. Generating signature.
 		char *signature = generate_signature_token(approve_request->auth_token);
 		strcpy(approve_response.signature, signature);
 		strcpy(approve_response.permissions, approvals[crt_approval]);
 
-		// Save the signature for future verification. Save the permissions
+		// Find the user by its AUTH token. Save the signature for future verification. Save token's permissions.
 		for (int i = 0; i < nr_users; i++) {
 			if (strcmp(approve_request->auth_token, auth_tokens[i]) == 0) {
 				strcpy(signatures[i], signature);
@@ -76,7 +76,7 @@ approve_request_token_1_svc(struct approve_request *approve_request, struct svc_
 		}
 	}
 
-	//printf("returning 2\n");
+	// Move to the next approval entry.
 	crt_approval += 1;
 	return &approve_response;
 }
@@ -88,11 +88,7 @@ request_access_1_svc(struct access_request *access_request, struct svc_req *rqst
 	access_response.access_token = malloc(16);
 	access_response.refresh_token = calloc(16, 1);
 
-	/*
-	 * insert server code here
-	 */
-
-	// Find the user.
+	// Find the user by id.
 	for (int i = 0; i < nr_users; i++) {
 		if (strcmp(ids[i], access_request->id) == 0) { // User found.
 
@@ -122,6 +118,7 @@ request_access_1_svc(struct access_request *access_request, struct svc_req *rqst
 					fflush(stdout);
 				}
 				
+				// Update token's valability.
 				access_response.ttl = ttl;
 				ttls[i] = ttl;
 				
@@ -130,7 +127,6 @@ request_access_1_svc(struct access_request *access_request, struct svc_req *rqst
 		}
 	}
 
-	//printf("returning 3\n");
 	return &access_response;
 }
 
@@ -143,13 +139,14 @@ refresh_session_1_svc(char **argp, struct svc_req *rqstp)
 	refresh_response.refresh_token = malloc(16);
 	refresh_response.ttl = ttl;
 
+	// Generate new access and refresh tokens.
 	char *new_access_token = generate_access_token(refresh_token);
 	char *new_refresh_token = generate_access_token(new_access_token);
 
 	strcpy(refresh_response.access_token, new_access_token);
 	strcpy(refresh_response.refresh_token, new_refresh_token);
 
-	// Find user, save new tokens and renew TTL.
+	// Find user by previous refresh_token, save the new tokens and renew TTL.
 	for (int i = 0; i < nr_users; i++) {
 		if (!strcmp(refresh_tokens[i], refresh_token)) {
 
@@ -166,15 +163,13 @@ refresh_session_1_svc(char **argp, struct svc_req *rqstp)
 		}
 	}
 
-	
-
 	return &refresh_response;
 }
 
-// Returns 0 if not allowed and 1 if allowed
-int is_allowed(char *permissions, char *action, char *resource_searched) {
+// Returns 0 if token does not have permissions for operation on the resource_searched and 1 if it has
+int is_allowed(char *permissions, char operation, char *resource_searched) {
 
-	// Create permission copy (strtok would have broken the original).
+	// Create permission copy (strtok would have broken the original string).
 	char *permission_copy = malloc(100);
 	strcpy(permission_copy, permissions);
 
@@ -186,11 +181,9 @@ int is_allowed(char *permissions, char *action, char *resource_searched) {
 
 		// Searching for the wanted resource.
 		if (strcmp(resource, resource_searched) == 0) {
-			//("Found resource %s with permissions %s\n", resource, permission);
 			for (int c = 0; c < strlen(permission); c++) {
-				if (action[0] == permission[c]) { 
+				if (operation == permission[c]) { 
 					// Permission found.
-					//printf("You have permission\n");
 					free(permission_copy);
 					return 1;
 				}
@@ -205,7 +198,7 @@ int is_allowed(char *permissions, char *action, char *resource_searched) {
 	return 0;
 }
 
-// Returns 1 if file exists and 0 if it doesn't.
+// Returns 1 if file exists in the system and 0 if it doesn't.
 int file_exists(char *file_name) {
 	for (int i = 0; i < nr_resources; i++) {
 		if (!strcmp(resources[i], file_name))
@@ -219,23 +212,19 @@ validate_delegated_action_1_svc(struct action_request *argp, struct svc_req *rqs
 {
 	static int  result;
 
-	/*
-	 * insert server code here
-	 */
 	int id = -1;
 	int found = -1;
 	char *token = calloc(16, 1);
 
 	for (int i = 0; i < nr_users; i++) {
 
-		// printf("%s %s\n", ids[i], access_tokens[i]);
 		// Find the user by access token.
 		if (strlen(access_tokens[i]) && strcmp(argp->access_token, access_tokens[i]) == 0) {
 
 			id = i;
 			found = 0;
 
-			// Downgrade ttl.
+			// Decrease ttl.
 			if (ttls[i] == 0) {
 				result = TOKEN_EXPIRED;
 				break;
@@ -248,12 +237,26 @@ validate_delegated_action_1_svc(struct action_request *argp, struct svc_req *rqs
 				result = RESOURCE_NOT_FOUND;
 				break;
 			}
-			
 
+			// Get operation type.
+			char operation;
+			if (!strcmp(argp->action, "EXECUTE")) {
+				operation = 'X';
+			} else if (!strcmp(argp->action, "READ")) {
+				operation = 'R';
+			} else if (!strcmp(argp->action, "MODIFY")) {
+				operation = 'M';
+			} else if (!strcmp(argp->action, "DELETE")) {
+				operation = 'D';
+			} else if (!strcmp(argp->action, "INSERT")) {
+				operation = 'I';
+			} else {
+				result = OPERATION_NOT_PERMITTED;
+				break;
+			}
+			
 			// Search for the resource and its permissions.
-			//printf("perm: %s\n", permissions[i]);
-			int allowed = is_allowed(permissions[i], argp->action, argp->resource);
-			//printf("allowed: %d\n", allowed);
+			int allowed = is_allowed(permissions[i], operation, argp->resource);
 
 			if (!allowed) {
 				result = OPERATION_NOT_PERMITTED;
@@ -281,31 +284,8 @@ validate_delegated_action_1_svc(struct action_request *argp, struct svc_req *rqs
 		fflush(stdout);
 	}
 
-	char *action = calloc(10,1);
-	switch (argp->action[0])
-	{
-	case 'R':
-		strcpy(action, "READ");
-		break;
-	case 'I':
-		strcpy(action, "INSERT");
-		break;
-	case 'M':
-		strcpy(action, "MODIFY");
-		break;
-	case 'D':
-		strcpy(action, "DELETE");
-		break;
-	case 'X':
-		strcpy(action, "EXECUTE");
-		break;
-	default:
-		strcpy()
-		break;
-	}
-
 	char *username = calloc(16,1);
-	printf("(%s,%s,%s,%d)\n", action, argp->resource, token, ttls[id]);
+	printf("(%s,%s,%s,%d)\n", argp->action, argp->resource, token, ttls[id]);
 	fflush(stdout);
 
 	return &result;

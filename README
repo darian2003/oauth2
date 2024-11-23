@@ -1,0 +1,39 @@
+Balagiu Darian - Sisteme concurente si distribuite - Tema 1
+
+    Modificare stub server
+
+    Am modificat stub-ul serverului prin crearea functiei create_database() in fisierul oauth_svc.c,
+care reprezinta o rutina realizata de catre server de fiecare data cand acesta este deschis.
+Functia deschide si parseaza cele 3 fisiere de intrare pentru server (userDs.db, resources.db si approvals.db)
+si populeaza baza de date cu informatiile citite.
+
+    Baza de date
+
+    In fisierul header oauth.h sunt descrise variabilele care abstractizeaza bazele de date a clientului si 
+a serverului. Pentru derularea unui scenariu cat mai real cu putinta, am considerat ca cele doua entitati nu
+isi pot accesa reciproc baza de date, astfel ca fiecare entitate isi defineste si creeaza o baza de date proprie.
+Aceste variabile sunt declarate in header folosind keyword-ul extern, sunt initializate si alocate dinamic
+la deschiderea proceselor (in functia main din oauth_client.c in cadrul clientului si in stub-ul serverului
+prin functia create_database mentionata anterior), populate, accesate si modificate de catre procedurile aferente
+de-a lungul efectuarii request-urilor.
+
+    Structuri de date
+
+    Datele sunt salvate sub forma unor vectori de lungime MAX_LINES. Atat din perspectiva serverului cat
+si din perspectiva clientului, datele utilizatorilor sunt retinute de-a lungul mai multor vectori si sunt corelate prin 
+intermediul indexarii comune. Spre exemplu, utilizatorulului cu id-ul ids[i], ii revine access_token[i],
+refresh_token[i], ttl[i], refresh_status[i]. Aceasta abordare nu este una scalabila, spre deosebire de una bazata
+pe hash map-uri, deoarece presupune o complexitate de cautare O(N), dar respecta regulatia temei.
+
+    Procedura noua
+
+    Am creat o noua procedura numita REFRESH_SESSION care, spre deosebire de celelalte proceduri, este apelata
+automat in momentul necesitatii reinnoirii token-ului de acces. Aceasta functionalitate putea fi incorporata in
+cadrul procedurii REQUEST_ACCESS, insa consider ca ar fi scazut lizibilitatea codului. Crearea unei noi proceduri
+sustine modularizarea codului.
+
+    Metoda de semnare a cererilor de autorizare
+
+    Cand un utilizator aproba o cerere de autorizare, se creeaza o semnatura prin intermediul functiei generate_signature_token,
+care encodeaza token-ul de autorizare folosind un cifru Caesar. Aceasta semnatura este salvata de server si este verificata
+ulterior de catre acesta in momentul in care clientul trimite o cerere de obtinere a token-ului de acces.

@@ -14,49 +14,9 @@ int *client_ttls;
 int client_nr_users = 0;
 int ttl;
 
-void
-checkprog_1(char *host)
+
+struct auth_response *request_auth(char *host, char *id) 
 {
-	CLIENT *clnt;
-	struct auth_response  *result_1;
-	char * request_auth_1_arg;
-	struct approve_request  *result_2;
-	struct approve_request  approve_request_token_1_arg;
-	struct access_response  *result_3;
-	struct access_request  request_access_1_arg;
-	int  *result_4;
-	struct action_request  validate_delegated_action_1_arg;
-
-#ifndef	DEBUG
-	clnt = clnt_create (host, OAUTH_PROG, OAUTH_VERS, "udp");
-	if (clnt == NULL) {
-		clnt_pcreateerror (host);
-		exit (1);
-	}
-#endif	/* DEBUG */
-
-	result_1 = request_auth_1(&request_auth_1_arg, clnt);
-	if (result_1 == (struct auth_response *) NULL) {
-		clnt_perror (clnt, "call failed");
-	}
-	result_2 = approve_request_token_1(&approve_request_token_1_arg, clnt);
-	if (result_2 == (struct approve_request *) NULL) {
-		clnt_perror (clnt, "call failed");
-	}
-	result_3 = request_access_1(&request_access_1_arg, clnt);
-	if (result_3 == (struct access_response *) NULL) {
-		clnt_perror (clnt, "call failed");
-	}
-	result_4 = validate_delegated_action_1(&validate_delegated_action_1_arg, clnt);
-	if (result_4 == (int *) NULL) {
-		clnt_perror (clnt, "call failed");
-	}
-#ifndef	DEBUG
-	clnt_destroy (clnt);
-#endif	 /* DEBUG */
-}
-
-struct auth_response *request_auth(char *host, char *id) {
 	CLIENT *clnt;
 	struct auth_response  *auth_response;
 
@@ -72,14 +32,12 @@ struct auth_response *request_auth(char *host, char *id) {
 		clnt_perror (clnt, "call failed");
 		exit(1);
 	}
-
-	fflush(stdout);
-	//printf("Response: %s %d\n", auth_response->auth_token, auth_response->status);
 	
 	return auth_response;
 }
 
-struct approve_request *approve_request_token(char *host, struct approve_request approve_request) {
+struct approve_request *approve_request_token(char *host, struct approve_request approve_request) 
+{
 	CLIENT *clnt;
 	struct approve_request *approve_response;
 
@@ -100,7 +58,8 @@ struct approve_request *approve_request_token(char *host, struct approve_request
 	return approve_response;
 }
 
-struct access_response *request_access(char *host, struct access_request access_request) {
+struct access_response *request_access(char *host, struct access_request access_request) 
+{
 	
 	CLIENT *clnt;
 	struct access_response *access_response;
@@ -123,7 +82,8 @@ struct access_response *request_access(char *host, struct access_request access_
 
 }
 
-int *validate_delegated_action(char *host, struct action_request action_request) {
+int *validate_delegated_action(char *host, struct action_request action_request) 
+{
 
 	CLIENT *clnt;
 	int *response;
@@ -145,7 +105,8 @@ int *validate_delegated_action(char *host, struct action_request action_request)
 	return response;
 }
 
-struct refresh_response *refresh_session(char *host, char *refresh_token) {
+struct refresh_response *refresh_session(char *host, char *refresh_token) 
+{
 	CLIENT *clnt;
 	struct refresh_response *response;
 
@@ -171,8 +132,6 @@ main (int argc, char *argv[])
 {
 	char *host;
 	fflush(stdout);
-	
-	//printf("lalal\n\n");
 
 	if (argc < 2) {
 		printf ("usage: %s server_host operations_file\n", argv[0]);
@@ -182,12 +141,12 @@ main (int argc, char *argv[])
 		exit (1);
 	}
 
+	// Create database for the client side.
 	client_ids = malloc(MAX_LINES * sizeof(char *));
 	client_access_tokens = malloc(MAX_LINES * sizeof(char *));
 	client_refresh_tokens = malloc(MAX_LINES * sizeof(char *));
 	client_ttls = calloc(MAX_LINES, sizeof(int));
 	client_refresh_states = calloc(MAX_LINES, sizeof(int));
-
 
 	for (int i = 0; i < MAX_LINES; i++) {
 		client_ids[i] = calloc(16, sizeof(char));
@@ -198,23 +157,19 @@ main (int argc, char *argv[])
 	host = argv[1];
 	char *operations_file = argv[2];
 
-	fflush(stdout);
-	//printf("%s\n", operations_file);
-
-    FILE *file = fopen(operations_file, "r");  // Open the file in read mode
+	// Open the file in read mode and execute requests one by one.
+    FILE *file = fopen(operations_file, "r"); 
     if (file == NULL) {
         perror("Error opening file");
         return 1;
     }
 
-    char line[100];  // Buffer to store each line
+	// Buffer to store each line
+    char line[100];  
 	const char delimiters[] = ",\n";
 
-	// Execute every command
-	int nr = 0;
-    while (fgets(line, sizeof(line), file)) {  // Read one line at a time
-		//printf("%s %d\n", line, nr);
-		nr++;
+	// Execute every command. Read one line at a time.
+    while (fgets(line, sizeof(line), file)) {  
 
 		char *token = strtok(line, delimiters);
 		char id[16];
@@ -230,7 +185,7 @@ main (int argc, char *argv[])
 			token = strtok(NULL, delimiters);
 			int refresh_state = atoi(token);
 
-			// Search client if the database and save his database id
+			// Search the client in the database and save his database id.
 			int database_id = 0;
 			int found = 0;
 			for (int i = 0; i < client_nr_users; i++) {
@@ -281,18 +236,17 @@ main (int argc, char *argv[])
 				strcpy(access_request.signature, approve_response->signature);
 				access_request.refresh_state = refresh_state;
 
-				// Request access token
+				// Request access token.
 				struct access_response *access_response = request_access(host, access_request);
 				
 				// Save access token. Set its ttl.
 				strcpy(client_access_tokens[database_id], access_response->access_token);
 				client_ttls[database_id] = access_response->ttl;
-				//printf("%d\n", client_ttls[database_id]);
 
 				// Save refresh state.
 				client_refresh_states[database_id] = refresh_state;
 
-				// Save refresh token.
+				// Save refresh token, in case refresh_state was set.
 				if (refresh_state) {
 					strcpy(client_refresh_tokens[database_id], access_response->refresh_token);
 					printf("%s -> %s,%s\n", access_request.auth_token, access_response->access_token, access_response->refresh_token);
@@ -304,7 +258,7 @@ main (int argc, char *argv[])
 			}
 		} else {
 			
-			// Parse resource's name
+			// Parse resource's name.
 			char resource[30];
 			token = strtok(NULL, delimiters);
 			strcpy(resource, token);
@@ -320,7 +274,6 @@ main (int argc, char *argv[])
 			// Check if refresh is needed.
 			if (!client_ttls[database_id] && client_refresh_states[database_id]) {
 
-				//printf("REFRESH, NU I BINE DELOC\n");
 				// Send refresh request.
 				struct refresh_response *refresh_response = refresh_session(host, client_refresh_tokens[database_id]);
 				
@@ -330,28 +283,21 @@ main (int argc, char *argv[])
 				client_ttls[database_id] = refresh_response->ttl;
 			}
 			
+			// Decrease token's time to live.
 			client_ttls[database_id]--;
 
+			// Prepare action request.
 			struct action_request action_request;
-			action_request.action = malloc(2);
+			action_request.action = malloc(20);
 			action_request.access_token = malloc(16);
 			action_request.resource = malloc(30);
 
-			if (action[0] == 'E') {
-				action_request.action[0] = 'X';
-			} else {
-				action_request.action[0] = action[0];
-			}
-			action_request.action[1] = '\0'; 
-
+			strcpy(action_request.action, action);
 			strcpy(action_request.resource, resource);
-
-			// Append user's access token
 			strcpy(action_request.access_token, client_access_tokens[database_id]);
 
-			
+			// Send access request.
 			int *status = validate_delegated_action(host, action_request);
-			// printf("Status: %d\n", *status);
 			switch (*status)
 			{
 			case PERMISSION_GRANTED:
@@ -374,10 +320,10 @@ main (int argc, char *argv[])
 				break;
 			}
 		}
-		//("\n");
     }
 
-    fclose(file);  // Close the file
+	// Close the file.
+    fclose(file);  
 
 	exit (0);
 }
