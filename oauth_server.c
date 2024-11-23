@@ -89,14 +89,21 @@ request_access_1_svc(struct access_request *access_request, struct svc_req *rqst
 	 * insert server code here
 	 */
 	for (int i = 0; i < nr_users; i++) {
-		if (strcmp(ids[i], access_request->id) == 0) { // User found	 
+		if (strcmp(ids[i], access_request->id) == 0) { // User found	
+
+			// Invalid signature 
 			if (strcmp(signatures[i], access_request->signature) != 0) {
 				return NULL;
 			} else {
+
+				// Generate access token. Send token and ttl.
 				char *access_token = generate_access_token(access_request->auth_token);
 				strcpy(access_response.access_token, access_token);
 				access_response.ttl = ttl;
+
+				// Save token and ttl.
 				strcpy(access_tokens[i], access_token);
+				ttls[i] = ttl;
 				printf("  AccessToken = %s\n", access_token);
 				break;
 			}
@@ -107,16 +114,138 @@ request_access_1_svc(struct access_request *access_request, struct svc_req *rqst
 	return &access_response;
 }
 
+// Returns 0 if not allowed and 1 if allowed
+int is_allowed(char *permissions, char *action, char *resource_searched) {
+
+	// Create permission copy (strtok would have broken the original).
+	char *permission_copy = malloc(100);
+	strcpy(permission_copy, permissions);
+
+	// Iterate through each resource and its permissions.
+	char *resource = strtok(permission_copy, ",\n");
+	char *permission = strtok(NULL, ",\n");
+
+	while (resource) {
+
+		// Searching for the wanted resource.
+		if (strcmp(resource, resource_searched) == 0) {
+			printf("Found resource %s with permissions %s\n", resource, permission);
+			for (int c = 0; c < strlen(permission); c++) {
+				if (action[0] == permission[c]) { 
+					// Permission found.
+					printf("You have permission\n");
+					free(permission_copy);
+					return 1;
+				}
+			}
+			break;
+		}
+		resource = strtok(NULL, ",\n");
+		permission = strtok(NULL, ",\n");
+	}
+
+	free(permission_copy);
+	return 0;
+}
+
+// Returns 1 if file exists and 0 if it doesn't.
+int file_exists(char *file_name) {
+	for (int i = 0; i < nr_resources; i++) {
+		if (!strcmp(resources[i], file_name))
+			return 1;
+	}
+	return 0;
+}
+
 int *
-validate_delegated_action_1_svc(struct access_request *argp, struct svc_req *rqstp)
+validate_delegated_action_1_svc(struct action_request *argp, struct svc_req *rqstp)
 {
 	static int  result;
 
 	/*
 	 * insert server code here
 	 */
+	int id = -1;
+	int found = -1;
+	char *token = calloc(16, 1);
 
+	for (int i = 0; i < nr_users; i++) {
 
+		printf("%s %s\n", ids[i], access_tokens[i]);
+		// Find the user by access token.
+		if (strlen(access_tokens[i]) && strcmp(argp->access_token, access_tokens[i]) == 0) {
+
+			id = i;
+			found = 0;
+
+			// Downgrade ttl.
+			if (ttls[i] == 0) {
+				result = TOKEN_EXPIRED;
+				break;
+			}
+
+			found = 1;
+			ttls[i] -= 1;
+
+			if (!file_exists(argp->resource)) {
+				result = RESOURCE_NOT_FOUND;
+				break;
+			}
+			
+
+			// Search for the resource and its permissions.
+			printf("perm: %s\n", permissions[i]);
+			int allowed = is_allowed(permissions[i], argp->action, argp->resource);
+			printf("allowed: %d\n", allowed);
+
+			if (!allowed) {
+				result = OPERATION_NOT_PERMITTED;
+				break;
+			}
+
+			result = PERMISSION_GRANTED;
+			break;
+		}
+
+	}
+
+	if (found < 0) {
+		// Access token does not exist.
+		result = PERMISSION_DENIED;
+	} else if (found > 0) {
+		strcpy(token, access_tokens[id]);
+	}
+
+	if (result == PERMISSION_GRANTED) {
+		printf("PERMIT ");
+	} else {
+		printf("DENY ");
+	}
+
+	char *action = calloc(10,1);
+	switch (argp->action[0])
+	{
+	case 'R':
+		strcpy(action, "READ");
+		break;
+	case 'I':
+		strcpy(action, "INSERT");
+		break;
+	case 'M':
+		strcpy(action, "MODIFY");
+		break;
+	case 'D':
+		strcpy(action, "DELETE");
+		break;
+	case 'X':
+		strcpy(action, "EXECUTE");
+		break;
+	default:
+		break;
+	}
+
+	char *username = calloc(16,1);
+	printf("(%s,%s,%s,%d, %d)\n", action, argp->resource, token, ttls[id], result);
 
 	return &result;
 }

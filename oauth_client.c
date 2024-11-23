@@ -8,8 +8,9 @@
 
 char **client_ids;
 char **client_access_tokens;
-int *ttls;
+int *client_ttls;
 int client_nr_users = 0;
+int ttl;
 
 void
 checkprog_1(char *host)
@@ -22,10 +23,10 @@ checkprog_1(char *host)
 	struct access_response  *result_3;
 	struct access_request  request_access_1_arg;
 	int  *result_4;
-	struct access_request  validate_delegated_action_1_arg;
+	struct action_request  validate_delegated_action_1_arg;
 
 #ifndef	DEBUG
-	clnt = clnt_create (host, CHECKPROG, CHECKVERS, "udp");
+	clnt = clnt_create (host, OAUTH_PROG, OAUTH_VERS, "udp");
 	if (clnt == NULL) {
 		clnt_pcreateerror (host);
 		exit (1);
@@ -58,7 +59,7 @@ struct auth_response *request_auth(char *host, char *id) {
 	struct auth_response  *auth_response;
 
 #ifndef	DEBUG
-	clnt = clnt_create (host, CHECKPROG, CHECKVERS, "udp");
+	clnt = clnt_create (host, OAUTH_PROG, OAUTH_VERS, "udp");
 	if (clnt == NULL) {
 		clnt_pcreateerror (host);
 		exit (1);
@@ -81,7 +82,7 @@ struct approve_request *approve_request_token(char *host, struct approve_request
 	struct approve_request *approve_response;
 
 #ifndef	DEBUG
-	clnt = clnt_create (host, CHECKPROG, CHECKVERS, "udp");
+	clnt = clnt_create (host, OAUTH_PROG, OAUTH_VERS, "udp");
 	if (clnt == NULL) {
 		clnt_pcreateerror (host);
 		exit (1);
@@ -103,7 +104,7 @@ struct access_response *request_access(char *host, struct access_request access_
 	struct access_response *access_response;
 
 #ifndef	DEBUG
-	clnt = clnt_create (host, CHECKPROG, CHECKVERS, "udp");
+	clnt = clnt_create (host, OAUTH_PROG, OAUTH_VERS, "udp");
 	if (clnt == NULL) {
 		clnt_pcreateerror (host);
 		exit (1);
@@ -120,13 +121,13 @@ struct access_response *request_access(char *host, struct access_request access_
 
 }
 
-int validate_delegated_action(char *host, struct action_request action_request) {
+int *validate_delegated_action(char *host, struct action_request action_request) {
 
 	CLIENT *clnt;
 	int *response;
 
 #ifndef	DEBUG
-	clnt = clnt_create (host, CHECKPROG, CHECKVERS, "udp");
+	clnt = clnt_create (host, OAUTH_PROG, OAUTH_VERS, "udp");
 	if (clnt == NULL) {
 		clnt_pcreateerror (host);
 		exit (1);
@@ -134,7 +135,7 @@ int validate_delegated_action(char *host, struct action_request action_request) 
 #endif	/* DEBUG */
 	
 
-	response = validate_delegated_action_1(&validate_delegated_action_1_arg, clnt);
+	response = validate_delegated_action_1(&action_request, clnt);
 	if (response == (int *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
@@ -160,7 +161,7 @@ main (int argc, char *argv[])
 
 	client_ids = malloc(MAX_LINES * sizeof(char *));
 	client_access_tokens = malloc(MAX_LINES * sizeof(char *));
-	ttls = calloc(MAX_LINES, sizeof(int));
+	client_ttls = calloc(MAX_LINES, sizeof(int));
 
 
 	for (int i = 0; i < MAX_LINES; i++) {
@@ -186,10 +187,8 @@ main (int argc, char *argv[])
 	// Execute every command
 	int nr = 0;
     while (fgets(line, sizeof(line), file)) {  // Read one line at a time
-	printf("%s\n", line);
-		printf("%d\n", nr);
+		printf("%s %d\n", line, nr);
 		nr++;
-		printf("\n\n");
 
 		char *token = strtok(line, delimiters);
 		char id[16];
@@ -260,8 +259,9 @@ main (int argc, char *argv[])
 				if (!access_response) {
 					printf("REQUEST_DENIED\n");
 				} else {
-					// Save access token
+					// Save access token. Set its ttl.
 					strcpy(client_access_tokens[database_id], access_response->access_token);
+					client_ttls[database_id] = ttl;
 					printf("%s -> %s\n", access_request.auth_token, access_response->access_token);
 				}
 			}
@@ -277,7 +277,7 @@ main (int argc, char *argv[])
 			action_request.access_token = malloc(16);
 			action_request.resource = malloc(30);
 
-			if (action[0] == "E") {
+			if (action[0] == 'E') {
 				action_request.action[0] = 'X';
 			} else {
 				action_request.action[0] = action[0];
@@ -296,7 +296,29 @@ main (int argc, char *argv[])
 			
 			int *status = validate_delegated_action(host, action_request);
 			printf("Status: %d\n", *status);
+			switch (*status)
+			{
+			case PERMISSION_GRANTED:
+				printf("PERMISSION_GRANTED\n");
+				break;
+			case PERMISSION_DENIED:
+				printf("PERMISSION_DENIED\n");
+				break;
+			case TOKEN_EXPIRED:
+				printf("TOKEN_EXPIRED\n");
+				break;
+			case RESOURCE_NOT_FOUND:
+				printf("RESOURCE_NOT_FOUND\n");
+				break;
+			case OPERATION_NOT_PERMITTED:
+				printf("OPERATION_NOT_PERMITTED\n");
+				break;
+			default:
+				printf("ERROR!\n");
+				break;
+			}
 		}
+		printf("\n");
     }
 
     fclose(file);  // Close the file
